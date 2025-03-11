@@ -1,19 +1,34 @@
 ## AvHub - Adult Video Content Resource Toolkit
+**AvHub** is an open-source tool dedicated to the retrieval and management of adult video resources, offering three core features:  
 
-AvHub is an open-source tool designed to help users efficiently search and organize adult video content through magnet links. The project focuses on two core functionalities:
+---
 
-1. **AV Code Search Engine**  
-   Quickly locate magnet links using Japanese adult video identification codes (番号) through integrated search capabilities.
+### **Key Features**  
+● 🔗 **Magnet Link Search**: Accurately finds magnet links corresponding to video codes.  
+● 📅 **Timely Hentai Resource Updates**: Automatically updates and archives monthly hentai resources.  
+● 📊 **Random Video Recommendation**: Random playback functionality based on crawled data.  
+● 🌐 **Multi-language Support**: Supports multiple language interfaces to meet global user needs.  
+● 🎨 **Multiple Theme Options**: Offers various theme color schemes to enhance user experience.  
 
-2. **Monthly H-Anime Collections**  
-   Automatically curated monthly compilations of adult anime content, providing organized access to the latest releases.
+---
 
-**Key Features**  
-* 🔍 Cross-platform search optimization  
-* 📅 Scheduled content updates tracker  
-* 🔗 Magnet link verification system  
-* 📊 Community-driven content database
+### **Technology Stack**  
+• **Frontend**:  
+  • Built with **Tailwind CSS** for a modern, responsive interface.  
+  • Integrated with **hls.js** for smooth video playback.  
+• **Backend**:  
+  • Developed using **FastAPI**, a Python framework, to provide efficient and stable API services.  
+• **Privacy Protection**:  
+   Strictly adheres to privacy principles and does not directly host any resource files. All data is retrieved through third-party links.  
 
-Built with modern web technologies, AvHub emphasizes user privacy and does not host any content directly. The project welcomes community contributions to improve search algorithms and content curation systems while adhering to open-source principles.
+---
 
-*Note: Users are responsible for checking local laws regarding adult content access.*
+### **Legal Disclaimer**  
+Users must comply with the laws and regulations of their respective regions. AvHub is solely a resource retrieval tool and does not involve the distribution or storage of any resources.  
+
+---
+
+**AvHub** is built with modern web technologies, aiming to provide users with an efficient and convenient adult video resource management experience.
+
+### **License**
+This project is provided under a **Apache License 2.0** license that can be found in the [LICENSE](LICENSE) file. By using, distributing, or contributing to this project, you agree to the terms and conditions of this license.

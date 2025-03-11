@@ -1,0 +1,26 @@
+# config.yaml
+app:
+  cors_origins: ["*"]
+  cors_credentials: true
+  cors_methods: ["*"]
+  cors_headers: ["*"]
+
+files:
+  hacg_json_path: "/app/data/hacg.json"
+  video_urls_txt_path: "/app/data/video_urls.txt"
+
+av_spider:
+  source_url: "https://missav.ai/cn/search/"
+  proxy_url: "http://192.168.50.2:7890" # http or socks5 proxy
+
+hacg_spider:
+  hacg_url: ""
+
+logging:
+  log_file: "main.log"
+  level: "INFO"
+
+hydra:
+  run:
+    dir: "."
+  output_subdir: null  
