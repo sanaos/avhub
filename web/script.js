@@ -65,7 +65,7 @@ async function searchMagnet() {
 
     const resultsDiv = document.getElementById('searchResults');
 
-    const searchTerm = input.value.trim();
+    const searchTerm = input.value.replace(/\s+/g, '').trim();
 
     const notification = document.getElementById('notification');
 
