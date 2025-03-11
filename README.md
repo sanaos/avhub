@@ -1,5 +1,5 @@
 <div align="center">
-      <img src="web\imgs\logo.png" alt="FTP Web Client Logo">
+      <img src="web\imgs\logo_opaque.png" alt="FTP Web Client Logo">
 </div>
 
 # AvHub - Adult Video Resource Management Platform  
