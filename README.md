@@ -1,3 +1,7 @@
+<div align="center">
+      <img src="web\imgs\logo.png" alt="FTP Web Client Logo">
+</div>
+
 # AvHub - Adult Video Resource Management Platform  
 
 **AvHub** is a web platform dedicated to the retrieval and management of adult video resources.  
