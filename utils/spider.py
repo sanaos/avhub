@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 import re
 import json
 import os
@@ -40,7 +41,7 @@ class AVSpider:
             response = requests.get(url, proxies=self.proxies, headers=self.headers)
             response.raise_for_status()
         except requests.RequestException as e:
-            self.logger.error(f"请求失败: {e}")
+            self.logger.error(f"Request Error: {e}")
             return []
 
         html_content = response.text
@@ -70,7 +71,7 @@ class AVSpider:
             response = requests.get(link, proxies=self.proxies, headers=self.headers)
             response.raise_for_status()
         except requests.RequestException as e:
-            self.logger.error(f"请求失败: {e}")
+            self.logger.error(f"Request Error: {e}")
             return []
 
         html_content = response.text
@@ -115,7 +116,7 @@ class HacgSpider:
             response = requests.get(self.url)
             response.raise_for_status()
         except requests.RequestException as e:
-            self.logger.error(f"请求失败: {e}")
+            self.logger.error(f"Request Error: {e}")
             return None
 
         html_content = response.text
@@ -133,12 +134,12 @@ class HacgSpider:
         return pages
 
     def get_links(self, page):
-        url = f'{self.url}?page={page}&s=%E5%90%88%E9%9B%86&submit=%E6%90%9C%E7%B4%A2'
+        url = f'{self.url}page/{page}?s=%E5%90%88%E9%9B%86&submit=%E6%90%9C%E7%B4%A2'
         try:
             response = requests.get(url)
             response.raise_for_status()
         except requests.RequestException as e:
-            self.logger.error(f"请求失败: {e}")
+            self.logger.error(f"Request Error: {e}")
             return {}
 
         html_content = response.text
@@ -157,7 +158,7 @@ class HacgSpider:
                 response = requests.get(link)
                 response.raise_for_status()
             except requests.RequestException as e:
-                self.logger.error(f"请求失败: {e}")
+                self.logger.error(f"Request Error: {e}")
                 continue
 
             content = response.text
@@ -165,7 +166,7 @@ class HacgSpider:
             if matches:
                 magnet_links[title] = f'magnet:?xt=urn:btih:{matches[0]}'
 
-        self.logger.info(f"Magnet links extracted from page {page}: {magnet_links}")
+        self.logger.info(f"Magnet links extracted from page {page}")
 
         return magnet_links
 
@@ -174,7 +175,7 @@ class HacgSpider:
             results = {}
             total_pages = self.get_pages()
             if total_pages is None:
-                self.logger.error("无法获取总页数")
+                self.logger.error("Unable to get total")
                 return
 
             for i in range(1, total_pages + 1):
@@ -187,7 +188,7 @@ class HacgSpider:
 
             total_pages = self.get_pages()
             if total_pages is None:
-                self.logger.error("无法获取总页数")
+                self.logger.error("Unable to get total")
                 return
 
             for i in range(1, total_pages + 1):
@@ -204,10 +205,10 @@ class HacgSpider:
                     self.logger.info(f'Page {i} processed (Incremental Update)')
 
                 if all_exists:
-                    self.logger.info(f"第 {i} 页数据已存在于 JSON 文件中，停止更新")
+                    self.logger.info(f"Page {i} data already exists in the JSON file, stop updating")
                     break
 
         with open(self.filepath, 'w', encoding='utf-8') as file:
             json.dump(results, file, ensure_ascii=False, indent=4)
 
-        self.logger.info("JSON文件已更新")
+        self.logger.info("JSON file updated")

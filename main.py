@@ -1,11 +1,7 @@
-import sys
-import argparse
+# -*- encoding: utf-8 -*-
 import os
-import re
-import subprocess
 import requests
 import json
-import ast
 from bs4 import BeautifulSoup
 from typing import Union
 from fastapi import FastAPI
@@ -16,6 +12,8 @@ import random
 from utils.spider import *
 import hydra
 from utils.logger import setup_logger
+import schedule
+import time
 
 @hydra.main(config_path='data/', config_name='config', version_base=None)
 def main(cfg: DictConfig):
@@ -60,7 +58,7 @@ def main(cfg: DictConfig):
                 return None
             return random.choice(webp_links or links)
         except Exception as e:
-            logger.error(f"获取图片URL失败: {str(e)}")
+            logger.error(f"Failed to obtain the image URL: {str(e)}")
             return None
 
     def read_random_line(file_path: str) -> tuple[str, str]:
@@ -126,12 +124,29 @@ def main(cfg: DictConfig):
         except Exception as e:
             logger.error(f"Failed to fetch random video URL: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+        
+    def run_hacg_spider():
+        hacg_spider = HacgSpider(url=cfg.hacg_spider.source_url, filepath=cfg.files.hacg_json_path, cfg=cfg)
+        hacg_spider.update_json_file()
+        logger.info("HacgSpider task completed.")
+
+    # Schedule the HacgSpider task to run daily at 1 AM
+    schedule.every().day.at("01:00").do(run_hacg_spider)
+
+    # Function to keep running the scheduler in the background
+    def run_scheduler():
+        while True:
+            schedule.run_pending()
+            time.sleep(60)  # Check every minute
+
+    import threading
+    # Start the scheduler in a separate thread
+    scheduler_thread = threading.Thread(target=run_scheduler)
+    scheduler_thread.daemon = True
+    scheduler_thread.start()
 
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
     main()
-
-
-

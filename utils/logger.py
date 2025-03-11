@@ -7,7 +7,7 @@ def setup_logger(cfg: DictConfig):
         logger.setLevel(getattr(logging, cfg.logging.level.upper()))
 
         # 创建文件处理器和流处理器
-        file_handler = logging.FileHandler(cfg.logging.log_file)
+        file_handler = logging.FileHandler(cfg.logging.log_file, encoding='utf-8')
         stream_handler = logging.StreamHandler()
 
         # 设置日志格式

@@ -11,10 +11,10 @@ files:
 
 av_spider:
   source_url: "https://missav.ai/cn/search/"
-  proxy_url: "http://192.168.50.2:7890" # http or socks5 proxy
+  proxy_url: "http://192.168.50.3:7890" # http or socks5 proxy
 
 hacg_spider:
-  hacg_url: ""
+  source_url: "https://www.hacg.mov/wp/"
 
 logging:
   log_file: "main.log"
