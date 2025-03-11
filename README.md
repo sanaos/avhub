@@ -22,6 +22,8 @@ Vercel Page: https://avhub.vercel.app/
 
 [![Star History Chart](https://api.star-history.com/svg?repos=levywang/avhub&type=Date)](https://star-history.com/#levywang/avhub&Date)  
 
+[English](README.md) | [简体中文](README_CN.md)   
+
 ---
 
 ### **Core Features**  
