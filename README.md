@@ -4,21 +4,26 @@
 ---
 
 ### **Key Features**  
-● 🔗 **Magnet Link Search**: Accurately finds magnet links corresponding to video codes.  
-● 📅 **Timely Hentai Resource Updates**: Automatically updates and archives monthly hentai resources.  
-● 📊 **Random Video Recommendation**: Random playback functionality based on crawled data.  
-● 🌐 **Multi-language Support**: Supports multiple language interfaces to meet global user needs.  
-● 🎨 **Multiple Theme Options**: Offers various theme color schemes to enhance user experience.  
+● 🔗 **Magnet Link Search**  
+&emsp;Accurately finds magnet links corresponding to video codes.  
+● 📅 **Timely Hentai Resource Updates**  
+&emsp;Automatically updates and archives monthly hentai resources.  
+● 📊 **Random Video Recommendation**  
+&emsp;Random playback functionality based on crawled data.  
+● 🌐 **Multi-language Support**  
+&emsp;Supports multiple language interfaces to meet global user needs.  
+● 🎨 **Multiple Theme Options**  
+&emsp;Offers various theme color schemes to enhance user experience.  
 
 ---
 
 ### **Technology Stack**  
-• **Frontend**:  
-  • Built with **Tailwind CSS** for a modern, responsive interface.  
-  • Integrated with **hls.js** for smooth video playback.  
-• **Backend**:  
-  • Developed using **FastAPI**, a Python framework, to provide efficient and stable API services.  
-• **Privacy Protection**:  
+- **Frontend**:  
+  - Built with **Tailwind CSS** for a modern, responsive interface.  
+  - Integrated with **hls.js** for smooth video playback.  
+- **Backend**:  
+  - Developed using **FastAPI**, a Python framework, to provide efficient and stable API services.  
+- **Privacy Protection**:  
    Strictly adheres to privacy principles and does not directly host any resource files. All data is retrieved through third-party links.  
 
 ---
