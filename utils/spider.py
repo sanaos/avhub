@@ -8,10 +8,10 @@ from omegaconf import DictConfig
 from utils.logger import setup_logger
 
 class AVSpider:
-    def __init__(self, av_code, source_url, proxy_url, cfg: DictConfig):
+    def __init__(self, av_code, source_url, proxy_url, use_proxy, cfg: DictConfig):
         self.source_url = source_url
         self.av_code = av_code.lower()
-        self.proxy_url = proxy_url
+        self.proxy_url = proxy_url if use_proxy else None
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36',
             'Content-Type': 'application/json'
@@ -19,7 +19,7 @@ class AVSpider:
         self.proxies = {
             "http": self.proxy_url,
             "https": self.proxy_url
-        }
+        } if self.proxy_url else {}
         self.logger = setup_logger(cfg)
 
     def get_video_url(self) -> list:

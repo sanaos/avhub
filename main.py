@@ -95,6 +95,7 @@ def main(cfg: DictConfig):
         crawler = AVSpider(av_code=code_str, 
                            source_url=cfg.av_spider.source_url, 
                            proxy_url=cfg.av_spider.proxy_url,
+                           use_proxy=cfg.av_spider.use_proxy,
                            cfg=cfg)
         video_links = crawler.get_video_url()
         all_magnet_links = []
