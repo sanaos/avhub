@@ -227,7 +227,7 @@ function displaySearchResults(results) {
 
                 <div class="flex flex-col gap-4">
 
-                    <h3 class="font-medium text-inherit break-all">${title}</h3>
+                    <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${magnet}" target="_blank" onclick="return false;">${title}</a></h3>
 
                     <div class="flex flex-wrap gap-2">
 
@@ -1248,7 +1248,7 @@ function displayCollections(collections) {
             collectionItem.className = 'magnet-item p-6 rounded-xl';
             collectionItem.innerHTML = `
                 <div class="flex flex-col gap-4">
-                    <h3 class="font-medium text-inherit break-all">${collection.title}</h3>
+                    <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${collection.link}" target="_blank" onclick="return false;">${collection.title}</a></h3>
                     <button onclick="copyToClipboard('${collection.link}')" 
                             class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
                         ${translations[currentLang].copyButton}
@@ -1264,7 +1264,7 @@ function displayCollections(collections) {
             collectionItem.className = 'magnet-item p-6 rounded-xl';
             collectionItem.innerHTML = `
                 <div class="flex flex-col gap-4">
-                    <h3 class="font-medium text-inherit break-all">${title}</h3>
+                    <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${link}" target="_blank" onclick="return false;">${title}</a></h3>
                     <button onclick="copyToClipboard('${link}')" 
                             class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
                         ${translations[currentLang].copyButton}
