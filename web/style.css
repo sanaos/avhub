@@ -1277,6 +1277,14 @@ body.light-theme select option {
     transform: translateX(20px);
 }
 
+#autoNextToggle:checked + label .toggle-switch {
+    background-color: var(--primary-color);
+}
+
+#autoNextToggle:checked + label .toggle-switch::after {
+    transform: translateX(20px);
+}
+
 /* 适配移动端全屏问题 */
 #videoPlayer::-webkit-media-controls {
     will-change: transform;

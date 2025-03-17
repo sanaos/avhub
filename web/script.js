@@ -270,6 +270,7 @@ function showCoverImage(searchTerm) {
 // 视频播放功能
 let hls = null;
 let autoplayEnabled = false;
+let autoNextEnabled = false;
 
 // 初始化自动播放设置
 function initializeAutoplaySettings() {
@@ -283,6 +284,20 @@ function initializeAutoplaySettings() {
         autoplayToggle.addEventListener('change', (e) => {
             autoplayEnabled = e.target.checked;
             localStorage.setItem('autoplayEnabled', autoplayEnabled);
+        });
+    }
+}
+
+function initializeAutoNextToggle() {
+    const autoNextToggle = document.getElementById('autoNextToggle');
+    if (autoNextToggle) {
+        // 从localStorage读取状态
+        autoNextEnabled = localStorage.getItem('autoNextEnabled') === 'true';
+        autoNextToggle.checked = autoNextEnabled;
+        // 绑定change事件
+        autoNextToggle.addEventListener('change', (e) => {
+            autoNextEnabled = e.target.checked;
+            localStorage.setItem('autoNextEnabled', autoNextEnabled);
         });
     }
 }
@@ -406,6 +421,11 @@ async function loadVideo() {
                 videoPlayer.controls = true;
             }
         });
+        videoPlayer.addEventListener('ended', ()=> {
+            if (autoNextEnabled) {
+                loadVideo()}
+            ;
+        });
 
         videoPlayer.classList.remove('loading');
         notification.classList.remove('show');
@@ -434,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAutoplaySettings();
     initializeCopyButton();
     initializeCoverToggle();
-    
+    initializeAutoNextToggle(); // 新增初始化
     const nextVideoButton = document.getElementById('nextVideo');
     if (nextVideoButton) {
         nextVideoButton.addEventListener('click', loadVideo);
