@@ -179,8 +179,9 @@ class HacgSpider:
         self.logger = setup_logger(cfg)
 
     def get_pages(self):
+        url = f'{self.url}/wp/?s=%E5%90%88%E9%9B%86&submit=%E6%90%9C%E7%B4%A2'
         try:
-            response = requests.get(self.url)
+            response = requests.get(url)
             response.raise_for_status()
         except requests.RequestException as e:
             self.logger.error(f"Request Error: {e}")
