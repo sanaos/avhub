@@ -55,7 +55,7 @@ python main.py
 ```  
 The default API address: `http://127.0.0.1:8000/`  
 
-You can configure a reverse proxy and domain, replacing `BASE_URL` in line 38 of `web/script.js`.  
+You can configure a reverse proxy and domain, replacing `BASE_URL` in line 3 of `web/config.js`.  
 
 The backend configuration file is located in `data/config.yaml`. Modify it according to your actual needs.  
 

@@ -7,9 +7,9 @@
     <link rel="icon" href="imgs/favicon.ico">
     <link href="https://testingcf.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
-    <link href="https://testingcf.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js" rel="stylesheet">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="AvHub">
     <link rel="manifest" href="manifest.json">
@@ -175,7 +175,7 @@
                         </div>
                         <div class="source-url truncate font-mono" id="videoSourceUrl"></div>
                     </div>
-                    <button id="copySourceUrl" class="copy-button flex items-center px-3 py-1.5 rounded">
+                    <button id="copySourceUrl" class="copy-button flex items-center px-3 py-1.5 rounded" onclick="copyVideoUrl()">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
                         </svg>
@@ -193,8 +193,12 @@
         </svg>
     </button>
 
+    <!-- 正确位置加载HLS.js -->
     <script src="https://testingcf.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
-    <script src="script.js"></script>
+    <!-- 加载全局函数 -->
+    <script src="globals.js"></script>
+    <!-- 加载主脚本模块 -->
+    <script type="module" src="script.js"></script>
 
     <!-- 在body末尾添加通知元素 -->
     <div class="notification" id="notification">

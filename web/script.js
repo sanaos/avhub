@@ -1,3 +1,46 @@
+﻿import API_CONFIG from './config.js';
+
+// 在文档加载完成后初始化全局函数和事件监听
+document.addEventListener('DOMContentLoaded', () => {
+    // 监听switchTab事件 
+    window.addEventListener('switchTab', (e) => {
+        const { tabName } = e.detail;
+        switchTab(tabName);
+    });
+
+    // 监听searchMagnet事件
+    window.addEventListener('searchMagnet', () => {
+        searchMagnet();
+    });
+
+    // 监听copyToClipboard事件
+    window.addEventListener('copyToClipboard', (e) => {
+        const { text } = e.detail;
+        copyToClipboard(text);
+    });
+
+    // 监听showSortMenu事件
+    window.addEventListener('showSortMenu', (e) => {
+        const { button } = e.detail;
+        showSortMenu(button);
+    });
+    
+    // 监听searchWithTerm事件
+    window.addEventListener('searchWithTerm', (e) => {
+        const { term } = e.detail;
+        searchWithTerm(term);
+    });
+
+    // 初始化全局变量
+    if (window.initializeGlobals) {
+        window.initializeGlobals({
+            translations,
+            currentLang,
+            SORT_OPTIONS
+        });
+    }
+});
+
 // Tab切换功能
 
 // 添加全局变量
@@ -52,6 +95,8 @@ function switchTab(tabName) {
             if (!videoPlayer.paused) {
                 videoPlayer.pause();
             }
+            
+            // 不销毁HLS实例，只是暂停播放，避免重新创建开销
         }
     }
     
@@ -61,16 +106,6 @@ function switchTab(tabName) {
     }
 }
 
-// 添加 API 配置
-const API_CONFIG = {
-    BASE_URL: '/app/v1',
-    ENDPOINTS: {
-        SEARCH: '/avcode',
-        COLLECTIONS: '/hacg',
-        VIDEO: '/get_video',
-        HOT_SEARCHES: '/hot_searches'  // 添加热门搜索接口
-    }
-};
 
 // 搜索磁力链接
 
@@ -154,7 +189,6 @@ async function searchMagnet() {
 }
 
 // 显示搜索结果
-
 function displaySearchResults(results) {
     const searchResults = document.getElementById('searchResults');
     const coverToggle = document.getElementById('coverToggle');
@@ -175,32 +209,37 @@ function displaySearchResults(results) {
         return;
     }
 
-    const html = results.map(([magnet, title, size, date]) => {
+    results.forEach(([magnet, title, size, date]) => {
         const tags = extractTags(title);
         const tagsHtml = tags.map(tag => {
             return `<div class="tag" data-type="${tag.type}">${getTagLabel(tag.type)}</div>`;
         }).join('');
 
-        return `
-            <div class="magnet-item p-6 rounded-xl">
-                <div class="flex flex-col gap-4">
-                    <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${magnet}" target="_blank" onclick="return false;">${title}</a></h3>
-                    <div class="flex flex-wrap gap-2">
-                        ${tagsHtml}
-                    </div>
-                    <p class="text-sm text-inherit opacity-75">
-                        ${translations[currentLang].size}: ${size} | ${translations[currentLang].date}: ${date}
-                    </p>
-                    <button onclick="copyToClipboard('${magnet}')" 
-                            class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
-                        ${translations[currentLang].copyButton}
-                    </button>
+        const resultItem = document.createElement('div');
+        resultItem.className = 'magnet-item p-6 rounded-xl';
+        resultItem.innerHTML = `
+            <div class="flex flex-col gap-4">
+                <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${magnet}" target="_blank" onclick="return false;">${title}</a></h3>
+                <div class="flex flex-wrap gap-2">
+                    ${tagsHtml}
                 </div>
+                <p class="text-sm text-inherit opacity-75">
+                    ${translations[currentLang].size}: ${size} | ${translations[currentLang].date}: ${date}
+                </p>
+                <button class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
+                    ${translations[currentLang].copyButton}
+                </button>
             </div>
         `;
-    }).join('');
 
-    searchResults.innerHTML = html;
+        // 添加点击事件
+        const copyButton = resultItem.querySelector('.copy-button');
+        copyButton.addEventListener('click', () => {
+            copyToClipboard(magnet);
+        });
+
+        searchResults.appendChild(resultItem);
+    });
     
     // 添加这一行，确保结果按照标签数量排序
     sortResults('tags-desc');
@@ -459,6 +498,7 @@ function handleMouseEnter() {
 let hls = null;
 let autoplayEnabled = localStorage.getItem('autoplay') === 'true'; // 从localStorage读取初始值
 let autoNextEnabled = localStorage.getItem('autoNext') === 'true'; // 从localStorage读取初始值
+let isLoadingNextVideo = false; // 添加锁定标志，防止重复请求
 
 // 初始化自动播放设置
 function initializeAutoplaySettings() {
@@ -516,380 +556,271 @@ function initializeCoverToggle() {
 
 // 修改 loadVideo 函数
 function loadVideo() {
-    const videoPlayer = document.getElementById('videoPlayer');
-    const videoSourceUrl = document.getElementById('videoSourceUrl');
-    const notification = document.getElementById('notification');
-    const showCover = document.getElementById('coverToggle').checked;
-    
-    // 如果已经有视频URL，则不重新请求
-    if (currentVideoUrl) {
-        if (videoSourceUrl) {
-            videoSourceUrl.textContent = currentVideoUrl;
+    try {
+        const videoPlayer = document.getElementById('videoPlayer');
+        const videoSourceUrl = document.getElementById('videoSourceUrl');
+        const notification = document.getElementById('notification');
+        const showCover = document.getElementById('coverToggle')?.checked || false;
+        
+        // 确保视频播放器可操作
+        if (videoPlayer) {
+            videoPlayer.controls = true;
         }
-        if (videoPlayer && videoPlayer.src !== currentVideoUrl) {
-            videoPlayer.src = currentVideoUrl;
-            // 根据自动播放设置决定是否播放
-            if (autoplayEnabled) {
-                videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
+        
+        // 如果已经有视频URL，则不重新请求
+        if (currentVideoUrl) {
+            if (videoSourceUrl) {
+                videoSourceUrl.textContent = currentVideoUrl;
             }
-        }
-        return;
-    }
-
-    // 显示加载中通知
-    notification.innerHTML = `
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <span>${translations[currentLang].loadingVideo}</span>
-    `;
-    notification.classList.add('show');
-
-    // 如果没有视频URL，则请求新的
-    fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.VIDEO}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.url) {
-                currentVideoUrl = data.url; // 保存视频URL
-                if (videoSourceUrl) {
-                    videoSourceUrl.textContent = data.url;
-                }
-                if (videoPlayer) {
-                    // 设置视频封面（如果开启了封面图显示）
-                    if (showCover && data.img_url) {
-                        videoPlayer.poster = data.img_url;
+            if (videoPlayer && videoPlayer.src !== currentVideoUrl) {
+                // 移除之前的事件监听器
+                videoPlayer.onended = null;
+                
+                // 使用HLS.js播放m3u8视频
+                if (currentVideoUrl.includes('.m3u8')) {
+                    if (Hls.isSupported()) {
+                        const hls = new Hls();
+                        hls.loadSource(currentVideoUrl);
+                        hls.attachMedia(videoPlayer);
+                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                            // 根据自动播放设置决定是否播放
+                            if (autoplayEnabled) {
+                                videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
+                            }
+                        });
+                        
+                        // 存储HLS实例以便清理
+                        videoPlayer.hlsInstance = hls;
+                    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                        // 原生支持HLS的浏览器(如Safari)
+                        videoPlayer.src = currentVideoUrl;
+                        if (autoplayEnabled) {
+                            videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
+                        }
                     } else {
-                        videoPlayer.poster = ''; // 清除封面图
+                        console.error('当前浏览器不支持HLS视频播放');
+                        notification.innerHTML = `
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>${translations[currentLang].browserNotSupported || '当前浏览器不支持该视频格式'}</span>
+                        `;
+                        notification.style.background = '#dc2626';
+                        notification.classList.add('show');
+                        setTimeout(() => {
+                            notification.classList.remove('show');
+                            notification.style.background = '';
+                        }, 3000);
                     }
-
-                    videoPlayer.src = data.url;
-                    
+                } else {
+                    // 非m3u8格式视频使用标准方式播放
+                    videoPlayer.src = currentVideoUrl;
                     // 根据自动播放设置决定是否播放
                     if (autoplayEnabled) {
                         videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
                     }
-
-                    // 添加视频结束事件监听
-                    videoPlayer.onended = () => {
-                        if (autoNextEnabled) {
-                            clearVideoUrl(); // 清除当前URL
-                            loadVideo(); // 加载下一个视频
-                        }
-                    };
                 }
                 
-                // 隐藏加载通知
-                notification.classList.remove('show');
+                // 添加视频结束事件监听
+                videoPlayer.onended = handleVideoEnded;
             }
-        })
-        .catch(error => {
-            console.error('加载视频失败:', error);
-            notification.innerHTML = `
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>${translations[currentLang].videoError}</span>
-            `;
-            notification.style.background = '#dc2626';
-            setTimeout(() => {
-                notification.classList.remove('show');
-                notification.style.background = '';
-            }, 3000);
-        });
+            
+            // 重置锁定状态
+            isLoadingNextVideo = false;
+            return;
+        }
+
+        // 设置加载状态为true
+        isLoadingNextVideo = true;
+
+        // 显示加载中通知
+        notification.innerHTML = `
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>${translations[currentLang].loadingVideo}</span>
+        `;
+        notification.classList.add('show');
+
+        // 如果没有视频URL，则请求新的
+        fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.VIDEO}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.url) {
+                    currentVideoUrl = data.url; // 保存视频URL
+                    if (videoSourceUrl) {
+                        videoSourceUrl.textContent = data.url;
+                    }
+                    if (videoPlayer) {
+                        // 移除之前的事件监听器
+                        videoPlayer.onended = null;
+                        
+                        // 确保控件可用
+                        videoPlayer.controls = true;
+                        
+                        // 设置视频封面（如果开启了封面图显示）
+                        if (showCover && data.img_url) {
+                            videoPlayer.poster = data.img_url;
+                        } else {
+                            videoPlayer.poster = ''; // 清除封面图
+                        }
+
+                        // 清理之前的HLS实例(如果存在)
+                        if (videoPlayer.hlsInstance) {
+                            videoPlayer.hlsInstance.destroy();
+                            videoPlayer.hlsInstance = null;
+                        }
+
+                        // 使用HLS.js播放m3u8视频
+                        if (data.url.includes('.m3u8')) {
+                            if (Hls.isSupported()) {
+                                const hls = new Hls({
+                                    // 添加更多的HLS配置，以增强稳定性
+                                    maxBufferLength: 30,
+                                    maxMaxBufferLength: 60
+                                });
+                                hls.loadSource(data.url);
+                                hls.attachMedia(videoPlayer);
+                                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                    // 根据自动播放设置决定是否播放
+                                    if (autoplayEnabled) {
+                                        videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
+                                    }
+                                });
+                                
+                                // 存储HLS实例以便清理
+                                videoPlayer.hlsInstance = hls;
+                            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                                // 原生支持HLS的浏览器(如Safari)
+                                videoPlayer.src = data.url;
+                                if (autoplayEnabled) {
+                                    videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
+                                }
+                            } else {
+                                console.error('当前浏览器不支持HLS视频播放');
+                                notification.innerHTML = `
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>${translations[currentLang].browserNotSupported || '当前浏览器不支持该视频格式'}</span>
+                                `;
+                                notification.style.background = '#dc2626';
+                                notification.classList.add('show');
+                                setTimeout(() => {
+                                    notification.classList.remove('show');
+                                    notification.style.background = '';
+                                }, 3000);
+                            }
+                        } else {
+                            // 非m3u8格式视频使用标准方式播放
+                            videoPlayer.src = data.url;
+                            // 根据自动播放设置决定是否播放
+                            if (autoplayEnabled) {
+                                videoPlayer.play().catch(e => console.error('Auto-play failed:', e));
+                            }
+                        }
+
+                        // 添加视频结束事件监听
+                        videoPlayer.onended = handleVideoEnded;
+                    }
+                    
+                    // 隐藏加载通知
+                    notification.classList.remove('show');
+                }
+                // 重置加载状态
+                isLoadingNextVideo = false;
+            })
+            .catch(error => {
+                console.error('加载视频失败:', error);
+                notification.innerHTML = `
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>${translations[currentLang].videoError}</span>
+                `;
+                notification.style.background = '#dc2626';
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                    notification.style.background = '';
+                }, 3000);
+                
+                // 重置加载状态
+                isLoadingNextVideo = false;
+                
+                // 确保播放器可用
+                if (videoPlayer) {
+                    videoPlayer.controls = true;
+                }
+            });
+    } catch (error) {
+        console.error('loadVideo函数出错:', error);
+        // 确保播放器可用
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer) {
+            videoPlayer.controls = true;
+        }
+        // 重置加载状态
+        isLoadingNextVideo = false;
+    }
+}
+
+// 处理视频结束事件
+function handleVideoEnded() {
+    console.log("视频结束事件触发", autoNextEnabled, isLoadingNextVideo);
+    
+    // 确保视频播放器可操作
+    const videoPlayer = document.getElementById('videoPlayer');
+    if (videoPlayer) {
+        // 确保控件可用
+        videoPlayer.controls = true;
+    }
+    
+    if (autoNextEnabled && !isLoadingNextVideo) {
+        isLoadingNextVideo = true;
+        setTimeout(() => {
+            // 延迟一点时间再加载下一个视频，防止事件冲突
+            clearVideoUrl();
+        }, 100);
+    } else {
+        // 如果不需要自动播放下一个，也要确保重置锁定状态
+        isLoadingNextVideo = false;
+    }
+}
+
+// 添加清除视频URL的函数（可以在需要重新加载视频时调用）
+function clearVideoUrl() {
+    try {
+        // 确保视频播放器可操作
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer) {
+            // 确保控件可用
+            videoPlayer.controls = true;
+            
+            // 移除视频事件监听器
+            videoPlayer.onended = null;
+            
+            // 清理HLS实例
+            if (videoPlayer.hlsInstance) {
+                videoPlayer.hlsInstance.destroy();
+                videoPlayer.hlsInstance = null;
+            }
+        }
+        
+        // 清除URL并加载新视频
+        currentVideoUrl = '';
+        
+        // 确保loadVideo函数被调用
+        setTimeout(() => {
+            loadVideo();
+        }, 200);
+    } catch (error) {
+        console.error('清除视频URL出错:', error);
+        // 发生错误时重置锁定状态
+        isLoadingNextVideo = false;
+    }
 }
 
 // 初始化视频播放器
-document.addEventListener('DOMContentLoaded', () => {
-    initializeAutoplaySettings(); // 这个函数现在已经包含了自动播放和自动下一个的初始化
-    initializeCopyButton();
-    initializeCoverToggle();
-    
-    // 修改下一个按钮的事件监听
-    const nextVideoButton = document.getElementById('nextVideo');
-    if (nextVideoButton) {
-        nextVideoButton.addEventListener('click', () => {
-            clearVideoUrl(); // 使用clearVideoUrl函数来处理
-        });
-    }
-
-    // 初始化模态框关闭功能
-    const imageModal = document.getElementById('imageModal');
-    const closeModal = document.getElementById('closeModal');
-
-    if (imageModal && closeModal) {
-        // 点击关闭按钮关闭模态框
-        closeModal.addEventListener('click', () => {
-            imageModal.classList.remove('active');
-            setTimeout(() => {
-                imageModal.classList.add('hidden');
-            }, 300);
-        });
-        
-        // 点击模态框背景关闭模态框
-        imageModal.addEventListener('click', (e) => {
-            if (e.target === imageModal) {
-                imageModal.classList.remove('active');
-                setTimeout(() => {
-                    imageModal.classList.add('hidden');
-                }, 300);
-            }
-        });
-        
-        // ESC键关闭模态框
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !imageModal.classList.contains('hidden')) {
-                imageModal.classList.remove('active');
-                setTimeout(() => {
-                    imageModal.classList.add('hidden');
-                }, 300);
-            }
-        });
-    }
-    
-    // 如果当前是搜索标签页，获取热门搜索词
-    if (currentTab === 'search') {
-        fetchHotSearches();
-    }
-});
-
-// 初始化复制按钮功能
-function initializeCopyButton() {
-    const copyButton = document.getElementById('copySourceUrl');
-    const notification = document.getElementById('notification');
-
-    if (copyButton) {
-        copyButton.addEventListener('click', async () => {
-            const sourceUrlElement = document.getElementById('videoSourceUrl');
-            const sourceUrl = sourceUrlElement?.textContent;
-            if (!sourceUrl) return;
-
-            try {
-                await navigator.clipboard.writeText(sourceUrl);
-                
-                // 显示复制成功提示
-                if (notification) {
-                    notification.innerHTML = `
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span>${translations[currentLang].copied}</span>
-                    `;
-                    notification.style.background = '#10B981'; // 成功绿色
-                    notification.classList.add('show');
-                    setTimeout(() => {
-                        notification.classList.remove('show');
-                        notification.style.background = '';
-                    }, 2000);
-                }
-
-                // 更新按钮状态
-                copyButton.classList.add('copied');
-                const textElement = copyButton.querySelector('.tab-text');
-                if (textElement) {
-                    const originalText = textElement.textContent;
-                    textElement.textContent = translations[currentLang].copied;
-                    
-                    setTimeout(() => {
-                        copyButton.classList.remove('copied');
-                        textElement.textContent = originalText;
-                    }, 2000);
-                }
-            } catch (err) {
-                console.error('复制失败:', err);
-                if (notification) {
-                    notification.innerHTML = `
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                        <span>${translations[currentLang].copyFailed}</span>
-                    `;
-                    notification.style.background = '#dc2626';
-                    notification.classList.add('show');
-                    setTimeout(() => {
-                        notification.classList.remove('show');
-                        notification.style.background = '';
-                    }, 3000);
-                }
-            }
-        });
-    }
-}
-
-// 语言配置
-const translations = {
-    zh: {
-        search: 'AV搜索',
-        collections: '里番合集',
-        player: '视频播放',
-        searchPlaceholder: '请输入AV番号...',
-        searchButton: '搜索',
-        copyButton: '复制链接',
-        noResults: '未找到相关结果',
-        searchError: '搜索出错，请稍后重试',
-        size: '大小',
-        date: '日期',
-        emptySearchWarning: '搜索词为空或有误，请重新输入',
-        copySuccess: '已复制到剪贴板',
-        copyError: '复制失败，请手动复制',
-        loading: '正在搜索中',
-        pageSize: '每页显示',
-        items: '条',
-        total: '共',
-        currentPage: '当前第',
-        page: '页',
-        prevPage: '上一页',
-        nextPage: '下一页',
-        goToPage: '跳转到',
-        sortByDate: '按日期排序',
-        sortBySize: '按大小排序',
-        newest: '最新',
-        oldest: '最早',
-        largest: '最大',
-        smallest: '最小',
-        next: '下一个',
-        loadingVideo: '正在加载视频...',
-        videoError: '视频加载失败，请稍后重试',
-        nsfw: '⚠️ 警告：该内容包含成人内容 (NSFW)，请确保您已年满18岁',
-        autoplay: '自动播放',
-        sourceUrl: '视频源地址',
-        copy: '复制',
-        copied: '已复制',
-        copyFailed: '复制失败'
-    },
-    en: {
-        search: 'AV Search',
-        collections: 'Anime Collection',
-        player: 'Video Player',
-        searchPlaceholder: 'Enter AV number...',
-        searchButton: 'Search',
-        copyButton: 'Copy Link',
-        noResults: 'No results found',
-        searchError: 'Search error, please try again later',
-        size: 'Size',
-        date: 'Date',
-        emptySearchWarning: 'The search term is empty or incorrect, please re-enter',
-        copySuccess: 'Copied to clipboard',
-        copyError: 'Copy failed, please copy manually',
-        loading: 'Searching',
-        pageSize: 'Show',
-        items: 'items',
-        total: 'Total',
-        currentPage: 'Page',
-        page: '',
-        prevPage: 'Previous',
-        nextPage: 'Next',
-        goToPage: 'Go to page',
-        sortByDate: 'Sort by date',
-        sortBySize: 'Sort by size',
-        newest: 'Newest',
-        oldest: 'Oldest',
-        largest: 'Largest',
-        smallest: 'Smallest',
-        next: 'Next',
-        loadingVideo: 'Loading video...',
-        videoError: 'Failed to load video, please try again later',
-        nsfw: '⚠️ Warning: This content contains adult material (NSFW), ensure you are 18+',
-        autoplay: 'Auto Play',
-        sourceUrl: 'Video Source URL',
-        copy: 'Copy',
-        copied: 'Copied',
-        copyFailed: 'Copy Failed'
-    }
-};
-
-// 语言图标配置
-const LANGUAGES = {
-    zh: {
-        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946z"/>
-              </svg>`,
-        label: '中文'
-    },
-    en: {
-        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2.133 0h2.732l1.658 4.51L11.2 5h2.667l-2.667 7.43V16H8.867v-3.57L6.133 5z"/>
-              </svg>`,
-        label: 'English'
-    }
-};
-
-// 当前语言
-let currentLang = 'zh';
-
-// 主题配置
-const THEMES = {
-    dark: {
-        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
-              </svg>`,
-        label: { zh: '夜间', en: 'Dark' }
-    },
-    light: {
-        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
-              </svg>`,
-        label: { zh: '日间', en: 'Light' }
-    },
-    emerald: {
-        icon: `<svg t="1741614536732" class="icon" viewBox="0 0 1024 1024" version="1.1"
-                xmlns="http://www.w3.org/2000/svg" p-id="5381" width="20" height="20">
-                <path d="M469.333333 896 469.333333 714.24C449.28 721.493333 427.946667 725.333333 405.333333 725.333333 298.666667 725.333333 213.333333 640 213.333333 533.333333 213.333333 479.146667 234.666667 430.506667 271.36 395.52 261.546667 372.48 256 346.88 256 320 256 213.333333 341.333333 128 448 128 514.56 128 573.44 162.133333 608 213.333333 611.413333 213.333333 614.826667 213.333333 618.666667 213.333333 748.373333 213.333333 853.333333 318.293333 853.333333 448 853.333333 577.706667 748.373333 682.666667 618.666667 682.666667 597.333333 682.666667 576 679.68 554.666667 673.706667L554.666667 896 469.333333 896Z" p-id="5382" fill="#10b981"></path>
-              </svg>`,
-        label: { zh: '翠绿', en: 'Emerald' }
-    },
-    ocean: {
-        icon: `<svg t="1741614777271" class="icon" viewBox="0 0 1024 1024" version="1.1"
-                xmlns="http://www.w3.org/2000/svg" p-id="11657" id="mx_n_1741614777271" width="200" height="200">
-                <path d="M704 341.333333a170.666667 170.666667 0 0 1-124.16-52.906666A90.453333 90.453333 0 0 0 512 256a89.173333 89.173333 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 320 341.333333a170.666667 170.666667 0 0 1-124.16-53.333333A90.026667 90.026667 0 0 0 128 256a42.666667 42.666667 0 0 1 0-85.333333 174.506667 174.506667 0 0 1 124.16 53.333333 88.32 88.32 0 0 0 135.253333 0 170.666667 170.666667 0 0 1 248.746667 0 88.746667 88.746667 0 0 0 135.68 0A173.653333 173.653333 0 0 1 896 170.666667a42.666667 42.666667 0 0 1 0 85.333333 90.026667 90.026667 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 704 341.333333z" fill="#3b82f6" p-id="11658"></path>
-                <path d="M704 597.333333a170.666667 170.666667 0 0 1-124.16-52.906666A90.453333 90.453333 0 0 0 512 512a89.173333 89.173333 0 0 0-67.84 31.573333 170.666667 170.666667 0 0 1-248.32 0A90.026667 90.026667 0 0 0 128 512a42.666667 42.666667 0 0 1 0-85.333333 174.506667 174.506667 0 0 1 124.16 52.906666 88.32 88.32 0 0 0 135.253333 0 170.666667 170.666667 0 0 1 248.746667 0 88.746667 88.746667 0 0 0 135.68 0A173.653333 173.653333 0 0 1 896 426.666667a42.666667 42.666667 0 0 1 0 85.333333 90.026667 90.026667 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 704 597.333333z" fill="#3b82f6" p-id="11659"></path>
-                <path d="M704 853.333333a170.666667 170.666667 0 0 1-124.16-52.906666A90.453333 90.453333 0 0 0 512 768a89.173333 89.173333 0 0 0-67.84 31.573333 170.666667 170.666667 0 0 1-248.32 0A90.026667 90.026667 0 0 0 128 768a42.666667 42.666667 0 0 1 0-85.333333 174.506667 174.506667 0 0 1 124.16 52.906666 88.32 88.32 0 0 0 135.253333 0 170.666667 170.666667 0 0 1 248.746667 0 88.746667 88.746667 0 0 0 135.68 0A173.653333 173.653333 0 0 1 896 682.666667a42.666667 42.666667 0 0 1 0 85.333333 90.026667 90.026667 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 704 853.333333z" fill="#3b82f6" p-id="11660"></path>
-              </svg>`,
-        label: { zh: '海蓝', en: 'Ocean' }
-    },
-    amethyst: {
-        icon: `<svg t="1741614881262" class="icon" viewBox="0 0 1024 1024" version="1.1"
-                xmlns="http://www.w3.org/2000/svg" p-id="5206" width="20" height="20">
-                <path d="M512.8 216l185.6 200H327.2l185.6-200z m273.6 200h172.8l-224-288h-56l107.2 288z m-273.6 413.6L732 448H292.8l220 381.6zM647.2 128H377.6L276 412.8 512.8 168l236.8 245.6L647.2 128z m121.6 320l-256 450.4-256-450.4H87.2L512 963.2 933.6 448H768.8z m-530.4-32l107.2-288h-56L68 416h170.4z" p-id="5207" fill="#8b5cf6"></path>
-              </svg>`,
-        label: { zh: '紫晶', en: 'Amethyst' }
-    }
-};
-
-// 排序配置
-const SORT_OPTIONS = {
-    'tags-desc': {
-        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M18.045 3.007 12.31 3a1.965 1.965 0 0 0-1.4.585l-7.33 7.394a2 2 0 0 0 0 2.805l6.573 6.631a1.957 1.957 0 0 0 1.4.585 1.965 1.965 0 0 0 1.4-.585l7.409-7.477A2 2 0 0 0 21 11.479v-5.5a2.972 2.972 0 0 0-2.955-2.972Zm-2.452 6.438a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
-               </svg>`,
-        label: { zh: '标签最多', en: 'Most Tags' }
-    },
-    'date-desc': {
-        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3z"/>
-              </svg>`,
-        label: { zh: '最新日期', en: 'Newest' }
-    },
-    'date-asc': {
-        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 3a1 1 0 000 2h4a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h11a1 1 0 100-2H3z"/>
-              </svg>`,
-        label: { zh: '最早日期', en: 'Oldest' }
-    },
-    'size-desc': {
-        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/>
-              </svg>`,
-        label: { zh: '文件最大', en: 'Largest' }
-    },
-    'size-asc': {
-        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/>
-              </svg>`,
-        label: { zh: '文件最小', en: 'Smallest' }
-    }
-};
-
-// 初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 设置初始主题
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -901,6 +832,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化所有按钮
     initializeButtons();
+    
+    // 初始化视频相关功能
+    initializeAutoplaySettings();
+    initializeCoverToggle();
 
     // 加载合集列表
     loadCollections();
@@ -1002,7 +937,198 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentTab === 'search') {
         fetchHotSearches();
     }
+    
+    // 添加页面卸载事件处理，清理HLS实例
+    window.addEventListener('beforeunload', () => {
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer && videoPlayer.hlsInstance) {
+            videoPlayer.hlsInstance.destroy();
+            videoPlayer.hlsInstance = null;
+        }
+    });
 });
+
+// 初始化复制按钮功能
+function initializeCopyButton() {
+    // 现在我们使用全局函数，这个函数不再需要实际功能
+    console.log('Using global copyVideoUrl function');
+}
+
+// 语言配置
+const translations = {
+    zh: {
+        search: 'AV搜索',
+        collections: '里番合集',
+        player: '视频播放',
+        searchPlaceholder: '请输入AV番号...',
+        searchButton: '搜索',
+        copyButton: '复制链接',
+        noResults: '未找到相关结果',
+        searchError: '搜索出错，请稍后重试',
+        size: '大小',
+        date: '日期',
+        emptySearchWarning: '搜索词为空或有误，请重新输入',
+        copySuccess: '已复制到剪贴板',
+        copyError: '复制失败，请手动复制',
+        loading: '正在搜索中',
+        pageSize: '每页显示',
+        items: '条',
+        total: '共',
+        currentPage: '当前第',
+        page: '页',
+        prevPage: '上一页',
+        nextPage: '下一页',
+        goToPage: '跳转到',
+        sortByDate: '按日期排序',
+        sortBySize: '按大小排序',
+        newest: '最新',
+        oldest: '最早',
+        largest: '最大',
+        smallest: '最小',
+        next: '下一个',
+        loadingVideo: '正在加载视频...',
+        videoError: '视频加载失败，请稍后重试',
+        nsfw: '⚠️ 警告：该内容包含成人内容 (NSFW)，请确保您已年满18岁',
+        autoplay: '自动播放',
+        sourceUrl: '视频源地址',
+        copy: '复制',
+        copied: '已复制',
+        copyFailed: '复制失败',
+        browserNotSupported: '当前浏览器不支持该视频格式'
+    },
+    en: {
+        search: 'AV Search',
+        collections: 'Anime Collection',
+        player: 'Video Player',
+        searchPlaceholder: 'Enter AV number...',
+        searchButton: 'Search',
+        copyButton: 'Copy Link',
+        noResults: 'No results found',
+        searchError: 'Search error, please try again later',
+        size: 'Size',
+        date: 'Date',
+        emptySearchWarning: 'The search term is empty or incorrect, please re-enter',
+        copySuccess: 'Copied to clipboard',
+        copyError: 'Copy failed, please copy manually',
+        loading: 'Searching',
+        pageSize: 'Show',
+        items: 'items',
+        total: 'Total',
+        currentPage: 'Page',
+        page: '',
+        prevPage: 'Previous',
+        nextPage: 'Next',
+        goToPage: 'Go to page',
+        sortByDate: 'Sort by date',
+        sortBySize: 'Sort by size',
+        newest: 'Newest',
+        oldest: 'Oldest',
+        largest: 'Largest',
+        smallest: 'Smallest',
+        next: 'Next',
+        loadingVideo: 'Loading video...',
+        videoError: 'Failed to load video, please try again later',
+        nsfw: '⚠️ Warning: This content contains adult material (NSFW), ensure you are 18+',
+        autoplay: 'Auto Play',
+        sourceUrl: 'Video Source URL',
+        copy: 'Copy',
+        copied: 'Copied',
+        copyFailed: 'Copy Failed',
+        browserNotSupported: 'Current browser does not support this video format'
+    }
+};
+
+// 语言图标配置
+const LANGUAGES = {
+    zh: {
+        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946z"/>
+              </svg>`,
+        label: '中文'
+    },
+    en: {
+        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2.133 0h2.732l1.658 4.51L11.2 5h2.667l-2.667 7.43V16H8.867v-3.57L6.133 5z"/>
+              </svg>`,
+        label: 'English'
+    }
+};
+
+// 当前语言
+let currentLang = 'zh';
+
+// 主题配置
+const THEMES = {
+    dark: {
+        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+              </svg>`,
+        label: { zh: '夜间', en: 'Dark' }
+    },
+    light: {
+        icon: `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/>
+              </svg>`,
+        label: { zh: '日间', en: 'Light' }
+    },
+    emerald: {
+        icon: `<svg t="1741614536732" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                xmlns="http://www.w3.org/2000/svg" p-id="5381" width="20" height="20">
+                <path d="M469.333333 896 469.333333 714.24C449.28 721.493333 427.946667 725.333333 405.333333 725.333333 298.666667 725.333333 213.333333 640 213.333333 533.333333 213.333333 479.146667 234.666667 430.506667 271.36 395.52 261.546667 372.48 256 346.88 256 320 256 213.333333 341.333333 128 448 128 514.56 128 573.44 162.133333 608 213.333333 611.413333 213.333333 614.826667 213.333333 618.666667 213.333333 748.373333 213.333333 853.333333 318.293333 853.333333 448 853.333333 577.706667 748.373333 682.666667 618.666667 682.666667 597.333333 682.666667 576 679.68 554.666667 673.706667L554.666667 896 469.333333 896Z" p-id="5382" fill="#10b981"></path>
+              </svg>`,
+        label: { zh: '翠绿', en: 'Emerald' }
+    },
+    ocean: {
+        icon: `<svg t="1741614777271" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                xmlns="http://www.w3.org/2000/svg" p-id="11657" id="mx_n_1741614777271" width="200" height="200">
+                <path d="M704 341.333333a170.666667 170.666667 0 0 1-124.16-52.906666A90.453333 90.453333 0 0 0 512 256a89.173333 89.173333 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 320 341.333333a170.666667 170.666667 0 0 1-124.16-53.333333A90.026667 90.026667 0 0 0 128 256a42.666667 42.666667 0 0 1 0-85.333333 174.506667 174.506667 0 0 1 124.16 53.333333 88.32 88.32 0 0 0 135.253333 0 170.666667 170.666667 0 0 1 248.746667 0 88.746667 88.746667 0 0 0 135.68 0A173.653333 173.653333 0 0 1 896 170.666667a42.666667 42.666667 0 0 1 0 85.333333 90.026667 90.026667 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 704 341.333333z" fill="#3b82f6" p-id="11658"></path>
+                <path d="M704 597.333333a170.666667 170.666667 0 0 1-124.16-52.906666A90.453333 90.453333 0 0 0 512 512a89.173333 89.173333 0 0 0-67.84 31.573333 170.666667 170.666667 0 0 1-248.32 0A90.026667 90.026667 0 0 0 128 512a42.666667 42.666667 0 0 1 0-85.333333 174.506667 174.506667 0 0 1 124.16 52.906666 88.32 88.32 0 0 0 135.253333 0 170.666667 170.666667 0 0 1 248.746667 0 88.746667 88.746667 0 0 0 135.68 0A173.653333 173.653333 0 0 1 896 426.666667a42.666667 42.666667 0 0 1 0 85.333333 90.026667 90.026667 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 704 597.333333z" fill="#3b82f6" p-id="11659"></path>
+                <path d="M704 853.333333a170.666667 170.666667 0 0 1-124.16-52.906666A90.453333 90.453333 0 0 0 512 768a89.173333 89.173333 0 0 0-67.84 31.573333 170.666667 170.666667 0 0 1-248.32 0A90.026667 90.026667 0 0 0 128 768a42.666667 42.666667 0 0 1 0-85.333333 174.506667 174.506667 0 0 1 124.16 52.906666 88.32 88.32 0 0 0 135.253333 0 170.666667 170.666667 0 0 1 248.746667 0 88.746667 88.746667 0 0 0 135.68 0A173.653333 173.653333 0 0 1 896 682.666667a42.666667 42.666667 0 0 1 0 85.333333 90.026667 90.026667 0 0 0-67.84 31.573333A174.506667 174.506667 0 0 1 704 853.333333z" fill="#3b82f6" p-id="11660"></path>
+              </svg>`,
+        label: { zh: '海蓝', en: 'Ocean' }
+    },
+    amethyst: {
+        icon: `<svg t="1741614881262" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                xmlns="http://www.w3.org/2000/svg" p-id="5206" width="20" height="20">
+                <path d="M512.8 216l185.6 200H327.2l185.6-200z m273.6 200h172.8l-224-288h-56l107.2 288z m-273.6 413.6L732 448H292.8l220 381.6zM647.2 128H377.6L276 412.8 512.8 168l236.8 245.6L647.2 128z m121.6 320l-256 450.4-256-450.4H87.2L512 963.2 933.6 448H768.8z m-530.4-32l107.2-288h-56L68 416h170.4z" p-id="5207" fill="#8b5cf6"></path>
+              </svg>`,
+        label: { zh: '紫晶', en: 'Amethyst' }
+    }
+};
+
+// 排序配置
+const SORT_OPTIONS = {
+    'tags-desc': {
+        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M18.045 3.007 12.31 3a1.965 1.965 0 0 0-1.4.585l-7.33 7.394a2 2 0 0 0 0 2.805l6.573 6.631a1.957 1.957 0 0 0 1.4.585 1.965 1.965 0 0 0 1.4-.585l7.409-7.477A2 2 0 0 0 21 11.479v-5.5a2.972 2.972 0 0 0-2.955-2.972Zm-2.452 6.438a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/>
+               </svg>`,
+        label: { zh: '标签最多', en: 'Most Tags' }
+    },
+    'date-desc': {
+        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3z"/>
+              </svg>`,
+        label: { zh: '最新日期', en: 'Newest' }
+    },
+    'date-asc': {
+        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 3a1 1 0 000 2h4a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h11a1 1 0 100-2H3z"/>
+              </svg>`,
+        label: { zh: '最早日期', en: 'Oldest' }
+    },
+    'size-desc': {
+        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/>
+              </svg>`,
+        label: { zh: '文件最大', en: 'Largest' }
+    },
+    'size-asc': {
+        icon: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/>
+              </svg>`,
+        label: { zh: '文件最小', en: 'Smallest' }
+    }
+};
 
 // 切换主题功能
 function toggleTheme(themeName) {
@@ -1401,15 +1527,24 @@ function displayCollections(collections) {
         collections.forEach(collection => {
             const collectionItem = document.createElement('div');
             collectionItem.className = 'magnet-item p-6 rounded-xl';
+            
+            const linkText = collection.link;
+            
             collectionItem.innerHTML = `
                 <div class="flex flex-col gap-4">
-                    <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${collection.link}" target="_blank" onclick="return false;">${collection.title}</a></h3>
-                    <button onclick="copyToClipboard('${collection.link}')" 
-                            class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
+                    <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${linkText}" target="_blank" onclick="return false;">${collection.title}</a></h3>
+                    <button class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
                         ${translations[currentLang].copyButton}
                     </button>
                 </div>
             `;
+            
+            // 添加点击事件
+            const copyButton = collectionItem.querySelector('.copy-button');
+            copyButton.addEventListener('click', () => {
+                copyToClipboard(linkText);
+            });
+            
             collectionList.appendChild(collectionItem);
         });
     } else if (typeof collections === 'object' && collections !== null) {
@@ -1417,15 +1552,22 @@ function displayCollections(collections) {
         Object.entries(collections).forEach(([title, link]) => {
             const collectionItem = document.createElement('div');
             collectionItem.className = 'magnet-item p-6 rounded-xl';
+            
             collectionItem.innerHTML = `
                 <div class="flex flex-col gap-4">
                     <h3 class="font-medium text-inherit break-all"><a rel="nofollow" href="${link}" target="_blank" onclick="return false;">${title}</a></h3>
-                    <button onclick="copyToClipboard('${link}')" 
-                            class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
+                    <button class="copy-button w-full px-4 py-2 rounded-lg text-sm font-medium text-white">
                         ${translations[currentLang].copyButton}
                     </button>
                 </div>
             `;
+            
+            // 添加点击事件
+            const copyButton = collectionItem.querySelector('.copy-button');
+            copyButton.addEventListener('click', () => {
+                copyToClipboard(link);
+            });
+            
             collectionList.appendChild(collectionItem);
         });
     } else {
@@ -1786,14 +1928,6 @@ function initializeModalEvents() {
     });
 }
 
-// 添加清除视频URL的函数（可以在需要重新加载视频时调用）
-function clearVideoUrl() {
-    if (currentVideoUrl) { // 只有在有当前URL时才清除并重新加载
-        currentVideoUrl = '';
-        loadVideo();
-    }
-}
-
 // 添加获取热门搜索的函数
 async function fetchHotSearches() {
     try {
@@ -1802,12 +1936,23 @@ async function fetchHotSearches() {
         
         if (data.status === 'succeed' && Array.isArray(data.data)) {
             const hotSearchesContainer = document.getElementById('hotSearches');
-            hotSearchesContainer.innerHTML = data.data
-                .map(term => `
-                    <button class="hot-search-tag" onclick="searchWithTerm('${term}')">
-                        ${term}
-                    </button>
-                `).join('');
+            
+            // 清空现有内容
+            hotSearchesContainer.innerHTML = '';
+            
+            // 创建并添加热门搜索标签
+            data.data.forEach(term => {
+                const button = document.createElement('button');
+                button.className = 'hot-search-tag';
+                button.textContent = term;
+                
+                // 添加点击事件监听
+                button.addEventListener('click', () => {
+                    searchWithTerm(term);
+                });
+                
+                hotSearchesContainer.appendChild(button);
+            });
         }
     } catch (error) {
         console.error('获取热门搜索失败:', error);

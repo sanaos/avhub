@@ -56,7 +56,7 @@ python main.py
 ```
 默认运行的API地址：`http://127.0.0.1:8000/`
 
-可以配置反代和域名，替换 `web/script.js` 38行中的 `BASE_URL`
+可以配置反代和域名，替换 `web/config.js` 3行中的 `BASE_URL`
 
 后端运行的配置文件在 `data/config.yaml` 中，请根据实际情况修改
 

@@ -310,11 +310,15 @@ def main(cfg: DictConfig):
             if not search_terms:
                 return {"status": "succeed", "data": []}
             
-            # 统计每个搜索词的出现次数并获取前N名
+            # 统计每个搜索词的出现次数并获取指定范围的数据
             term_counts = Counter(search_terms)
-            top_terms = [term for term, _ in term_counts.most_common(top_n)]
+            most_common_all = term_counts.most_common()  # 获取全部排序结果
+            start_index = top_n
+            end_index = start_index + top_n
+            selected_terms = most_common_all[start_index:end_index]  # 切片获取指定范围
+            top_terms = [term for term, _ in selected_terms]
             
-            logger.info(f"Retrieved top {top_n} popular search terms from last {last_n_lines} lines")
+            logger.info(f"Retrieved top {top_n*2} popular search terms from last {last_n_lines} lines")
             return {"status": "succeed", "data": top_terms}
         except asyncio.TimeoutError:
             logger.error("Timeout while reading log file")
